@@ -10,24 +10,57 @@ import com.example.local_inter.core.P2pManager
 import com.example.local_inter.core.SecurityGuard
 
 class MainActivity : AppCompatActivity() {
+    companion object {
+        const val NAS_PORT = 9999
+    }
+
     lateinit var nasServer: NasServer
     private lateinit var p2pManager: P2pManager
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_main)
+        
+        try {
+            setContentView(R.layout.activity_main)
 
-        // 初始化服务
-        nasServer = NasServer(9999)
-        p2pManager = P2pManager(this)
-        SecurityGuard(this, nasServer).startMonitor()
+            // 初始化服务
+            nasServer = NasServer(NAS_PORT)
+            p2pManager = P2pManager(this)
+            
+            try {
+                SecurityGuard(this, nasServer).startMonitor()
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
 
-        // 自动启动P2P + NAS
-        p2pManager.createGroup()
-        nasServer.startServer()
+            // 底部导航
+            val navView = findViewById<BottomNavigationView>(R.id.nav_view)
+            val navController = findNavController(R.id.nav_host)
+            navView.setupWithNavController(navController)
 
-        // 底部导航
-        val nav = findViewById<BottomNavigationView>(R.id.nav_view)
-        nav.setupWithNavController(findNavController(R.id.nav_host))
+            // 异步启动服务
+            startServices()
+        } catch (e: Exception) {
+            e.printStackTrace()
+            // 如果初始化失败，至少显示一个空白界面避免闪退
+            setContentView(R.layout.activity_main)
+        }
+    }
+
+    private fun startServices() {
+        Thread {
+            try {
+                nasServer.startServer()
+                p2pManager.createGroup()
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }.start()
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        nasServer.stopServer()
+        p2pManager.removeGroup()
     }
 }

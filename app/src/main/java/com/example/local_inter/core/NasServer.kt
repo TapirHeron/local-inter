@@ -47,13 +47,25 @@ class NasServer(port: Int) : NanoHTTPD(port) {
 
     fun startServer() {
         if (!isRunning) {
-            start()
-            isRunning = true
+            try {
+                start(SOCKET_READ_TIMEOUT, false)
+                isRunning = true
+            } catch (e: Exception) {
+                e.printStackTrace()
+                isRunning = false
+            }
         }
     }
 
     fun stopServer() {
-        stop()
-        isRunning = false
+        if (isRunning) {
+            try {
+                stop()
+            } catch (e: Exception) {
+                e.printStackTrace()
+            } finally {
+                isRunning = false
+            }
+        }
     }
 }

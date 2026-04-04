@@ -11,13 +11,17 @@ class SecurityGuard(
     private val nasServer: NasServer
 ) {
     fun startMonitor() {
-        val cm = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
-        val request = NetworkRequest.Builder().build()
+        try {
+            val cm = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+            val request = NetworkRequest.Builder().build()
 
-        cm.registerNetworkCallback(request, object : ConnectivityManager.NetworkCallback() {
-            override fun onLost(network: Network) {
-                nasServer.stopServer()
-            }
-        })
+            cm.registerNetworkCallback(request, object : ConnectivityManager.NetworkCallback() {
+                override fun onLost(network: Network) {
+                    nasServer.stopServer()
+                }
+            })
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
     }
 }

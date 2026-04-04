@@ -2,22 +2,55 @@ package com.example.local_inter.core
 
 import android.content.Context
 import android.net.wifi.p2p.WifiP2pManager
-import android.os.Build
-import android.os.Looper
 
 class P2pManager(private val context: Context) {
-    private val manager = context.getSystemService(Context.WIFI_P2P_SERVICE) as WifiP2pManager
-    private val channel = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.ICE_CREAM_SANDWICH) {
-        manager.initialize(context, Looper.getMainLooper(), null)
-    } else {
-        TODO("VERSION.SDK_INT < ICE_CREAM_SANDWICH")
+    private var manager: WifiP2pManager?
+    private var channel: WifiP2pManager.Channel?
+
+    init {
+        try {
+            manager = context.getSystemService(Context.WIFI_P2P_SERVICE) as? WifiP2pManager
+            channel = manager?.initialize(context, context.mainLooper, null)
+        } catch (e: Exception) {
+            e.printStackTrace()
+            manager = null
+            channel = null
+        }
     }
 
     fun createGroup() {
-        manager.createGroup(channel, null)
+        try {
+            if (manager != null && channel != null) {
+                manager!!.createGroup(channel!!, object : WifiP2pManager.ActionListener {
+                    override fun onSuccess() {
+                        // P2P 组创建成功
+                    }
+
+                    override fun onFailure(reason: Int) {
+                        // P2P 组创建失败
+                    }
+                })
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
     }
 
     fun removeGroup() {
-        manager.removeGroup(channel, null)
+        try {
+            if (manager != null && channel != null) {
+                manager!!.removeGroup(channel!!, object : WifiP2pManager.ActionListener {
+                    override fun onSuccess() {
+                        // P2P 组移除成功
+                    }
+
+                    override fun onFailure(reason: Int) {
+                        // P2P 组移除失败
+                    }
+                })
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
     }
 }
