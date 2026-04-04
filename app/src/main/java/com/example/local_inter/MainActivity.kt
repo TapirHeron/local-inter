@@ -1,47 +1,33 @@
 package com.example.local_inter
 
 import android.os.Bundle
-import androidx.activity.ComponentActivity
-import androidx.activity.compose.setContent
-import androidx.activity.enableEdgeToEdge
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.tooling.preview.Preview
-import com.example.local_inter.ui.theme.LocalinterTheme
+import androidx.appcompat.app.AppCompatActivity
+import androidx.navigation.findNavController
+import androidx.navigation.ui.setupWithNavController
+import com.google.android.material.bottomnavigation.BottomNavigationView
+import com.example.local_inter.core.NasServer
+import com.example.local_inter.core.P2pManager
+import com.example.local_inter.core.SecurityGuard
 
-class MainActivity : ComponentActivity() {
+class MainActivity : AppCompatActivity() {
+    lateinit var nasServer: NasServer
+    private lateinit var p2pManager: P2pManager
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        enableEdgeToEdge()
-        setContent {
-            LocalinterTheme {
-                Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-                    Greeting(
-                        name = "Android",
-                        modifier = Modifier.padding(innerPadding)
-                    )
-                }
-            }
-        }
-    }
-}
+        setContentView(R.layout.activity_main)
 
-@Composable
-fun Greeting(name: String, modifier: Modifier = Modifier) {
-    Text(
-        text = "Hello $name!",
-        modifier = modifier
-    )
-}
+        // 初始化服务
+        nasServer = NasServer(9999)
+        p2pManager = P2pManager(this)
+        SecurityGuard(this, nasServer).startMonitor()
 
-@Preview(showBackground = true)
-@Composable
-fun GreetingPreview() {
-    LocalinterTheme {
-        Greeting("Android")
+        // 自动启动P2P + NAS
+        p2pManager.createGroup()
+        nasServer.startServer()
+
+        // 底部导航
+        val nav = findViewById<BottomNavigationView>(R.id.nav_view)
+        nav.setupWithNavController(findNavController(R.id.nav_host))
     }
 }

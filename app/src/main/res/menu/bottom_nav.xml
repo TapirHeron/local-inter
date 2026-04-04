@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+    <item
+            android:id="@+id/homeFragment"
+            android:title="首页"
+            android:icon="@android:drawable/ic_dialog_info"/>
+    <item
+            android:id="@+id/devicesFragment"
+            android:title="设备"
+            android:icon="@android:drawable/ic_dialog_alert"/>
+    <item
+            android:id="@+id/filesFragment"
+            android:title="文件"
+            android:icon="@android:drawable/ic_menu_save"/>
+</menu>

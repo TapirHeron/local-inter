@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<navigation xmlns:android="http://schemas.android.com/apk/res/android"
+            xmlns:app="http://schemas.android.com/apk/res-auto"
+            android:id="@+id/nav_graph"
+            app:startDestination="@id/homeFragment">
+
+    <fragment
+            android:id="@+id/homeFragment"
+            android:name="com.example.local_inter.ui.HomeFragment"
+            android:label="首页"/>
+    <fragment
+            android:id="@+id/devicesFragment"
+            android:name="com.example.local_inter.ui.DevicesFragment"
+            android:label="设备发现"/>
+    <fragment
+            android:id="@+id/filesFragment"
+            android:name="com.example.local_inter.ui.FilesFragment"
+            android:label="文件管理"/>
+</navigation>
