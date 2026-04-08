@@ -12,6 +12,7 @@ import android.widget.Toast
 import androidx.fragment.app.Fragment
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import androidx.swiperefreshlayout.widget.SwipeRefreshLayout
 import com.example.local_inter.MainActivity
 import com.example.local_inter.R
 import com.example.local_inter.core.DeviceDiscover
@@ -20,6 +21,7 @@ class DevicesFragment : Fragment() {
     private lateinit var recyclerDevices: RecyclerView
     private lateinit var tvEmpty: TextView
     private lateinit var btnRefresh: ImageButton
+    private lateinit var swipeRefresh: SwipeRefreshLayout
     private lateinit var deviceDiscover: DeviceDiscover
     private val deviceList = mutableListOf<Pair<String, String>>()
     private lateinit var adapter: DeviceAdapter
@@ -36,6 +38,7 @@ class DevicesFragment : Fragment() {
         recyclerDevices = view.findViewById(R.id.recycler_devices)
         tvEmpty = view.findViewById(R.id.tv_empty)
         btnRefresh = view.findViewById(R.id.btn_refresh)
+        swipeRefresh = view.findViewById(R.id.swipe_refresh)
         
         recyclerDevices.layoutManager = LinearLayoutManager(context)
         adapter = DeviceAdapter(deviceList)
@@ -53,8 +56,22 @@ class DevicesFragment : Fragment() {
         deviceDiscover.start()
         deviceDiscover.broadcast()
         
+        // 下拉刷新
+        swipeRefresh.setOnRefreshListener {
+            deviceDiscover.clearDiscoveredDevices()
+            deviceList.clear()
+            adapter.notifyDataSetChanged()
+            updateEmptyState(true)
+            deviceDiscover.broadcast()
+            swipeRefresh.isRefreshing = false
+        }
+        
         // 刷新按钮
         btnRefresh.setOnClickListener {
+            deviceDiscover.clearDiscoveredDevices()
+            deviceList.clear()
+            adapter.notifyDataSetChanged()
+            updateEmptyState(true)
             deviceDiscover.broadcast()
             Toast.makeText(context, "正在搜索设备...", Toast.LENGTH_SHORT).show()
         }
@@ -66,6 +83,12 @@ class DevicesFragment : Fragment() {
         super.onResume()
         // 每次返回页面时重新广播
         deviceDiscover.broadcast()
+    }
+    
+    override fun onDestroyView() {
+        super.onDestroyView()
+        // 停止设备发现以释放资源
+        deviceDiscover.stop()
     }
 
     private fun addDevice(ip: String, msg: String) {

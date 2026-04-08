@@ -25,14 +25,15 @@ class NasServer(
     override fun serve(session: IHTTPSession): Response {
         val uri = session.uri.trim('/')
         val params = session.parameters
+        val method = session.method
         
-        // 检查是否请求加密传输
         val requestEncryption = params["encrypt"]?.firstOrNull() == "true"
         val useEncryption = (securityGuard?.isEncryptionEnabled == true) || requestEncryption
         
         val target = if (uri.isEmpty()) shareFolder else File(shareFolder, uri)
 
         return when {
+            method == Method.POST && uri.startsWith("upload") -> handleFileUpload(session)
             target.isDirectory -> getFolderHtml(target, useEncryption)
             target.isFile -> {
                 if (useEncryption) {
@@ -42,6 +43,42 @@ class NasServer(
                 }
             }
             else -> newFixedLengthResponse(Response.Status.NOT_FOUND, "text/plain", "文件不存在")
+        }
+    }
+    
+    private fun handleFileUpload(session: IHTTPSession): Response {
+        return try {
+            val files = HashMap<String, String>()
+            session.parseBody(files)
+            
+            val uploadedFile = files["file"]
+            if (uploadedFile != null) {
+                val sourceFile = File(uploadedFile)
+                val fileName = sourceFile.name
+                val destFile = File(shareFolder, fileName)
+                
+                sourceFile.copyTo(destFile, overwrite = true)
+                sourceFile.delete()
+                
+                newFixedLengthResponse(
+                    Response.Status.OK,
+                    "text/plain",
+                    "文件上传成功: $fileName"
+                )
+            } else {
+                newFixedLengthResponse(
+                    Response.Status.BAD_REQUEST,
+                    "text/plain",
+                    "未找到上传的文件"
+                )
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+            newFixedLengthResponse(
+                Response.Status.INTERNAL_ERROR,
+                "text/plain",
+                "上传失败: ${e.message}"
+            )
         }
     }
     

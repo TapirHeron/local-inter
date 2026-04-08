@@ -21,7 +21,7 @@ import com.example.local_inter.core.FileEncryptor
 import java.io.File
 import java.io.FileInputStream
 import java.io.FileOutputStream
-import java.text.SimpleDateFormat
+import androidx.swiperefreshlayout.widget.SwipeRefreshLayout
 import java.util.*
 
 class FilesFragment : Fragment() {
@@ -29,8 +29,15 @@ class FilesFragment : Fragment() {
     private lateinit var recyclerFiles: RecyclerView
     private lateinit var tvEmpty: TextView
     private lateinit var btnAddFile: ImageButton
+    private lateinit var swipeRefresh: SwipeRefreshLayout
 
-    private val shareFolder = File("/sdcard/LanShare/")
+    private val shareFolder by lazy {
+        // 使用正确的外部存储目录
+        val externalDir = requireContext().getExternalFilesDir(null)
+        File(externalDir, "LanShare").apply {
+            if (!exists()) mkdirs()
+        }
+    }
     private val fileList = mutableListOf<File>()
     private lateinit var adapter: FileAdapter
     
@@ -54,11 +61,18 @@ class FilesFragment : Fragment() {
         recyclerFiles = view.findViewById(R.id.recycler_files)
         tvEmpty = view.findViewById(R.id.tv_empty)
         btnAddFile = view.findViewById(R.id.btn_add_file)
+        swipeRefresh = view.findViewById(R.id.swipe_refresh)
         
         tvPath.text = shareFolder.absolutePath
         recyclerFiles.layoutManager = LinearLayoutManager(context)
         adapter = FileAdapter(fileList)
         recyclerFiles.adapter = adapter
+        
+        // 下拉刷新
+        swipeRefresh.setOnRefreshListener {
+            loadFiles()
+            swipeRefresh.isRefreshing = false
+        }
         
         // 添加文件按钮
         btnAddFile.setOnClickListener {
@@ -73,9 +87,30 @@ class FilesFragment : Fragment() {
         loadFiles()
     }
     
-    private fun copyFileToShareFolder(uri: Uri) {
+    override fun onDestroyView() {
+        super.onDestroyView()
+        // 清理缓存中的解密文件
         try {
-            val inputStream = requireContext().contentResolver.openInputStream(uri)
+            val cacheDir = requireContext().cacheDir
+            cacheDir.listFiles()?.forEach { file ->
+                if (file.name.startsWith("dec_")) {
+                    file.delete()
+                }
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+    
+    private fun copyFileToShareFolder(uri: Uri) {
+        var inputStream: java.io.InputStream? = null
+        try {
+            inputStream = requireContext().contentResolver.openInputStream(uri)
+            if (inputStream == null) {
+                Toast.makeText(context, "无法读取文件", Toast.LENGTH_SHORT).show()
+                return
+            }
+            
             val fileName = getFileNameFromUri(uri) ?: "file_${System.currentTimeMillis()}"
             
             // 检查是否启用加密
@@ -94,13 +129,7 @@ class FilesFragment : Fragment() {
                 // 加密保存
                 val tempFile = File(requireContext().cacheDir, "temp_${System.currentTimeMillis()}")
                 FileOutputStream(tempFile).use { output ->
-                    inputStream?.use { input ->
-                        val buffer = ByteArray(4096)
-                        var bytesRead: Int
-                        while (input.read(buffer).also { bytesRead = it } != -1) {
-                            output.write(buffer, 0, bytesRead)
-                        }
-                    }
+                    inputStream.copyTo(output)
                 }
                 
                 val key = securityGuard.getOrCreateEncryptionKey()
@@ -111,21 +140,17 @@ class FilesFragment : Fragment() {
             } else {
                 // 普通保存
                 FileOutputStream(destFile).use { output ->
-                    inputStream?.use { input ->
-                        val buffer = ByteArray(4096)
-                        var bytesRead: Int
-                        while (input.read(buffer).also { bytesRead = it } != -1) {
-                            output.write(buffer, 0, bytesRead)
-                        }
-                    }
+                    inputStream.copyTo(output)
                 }
                 Toast.makeText(context, "文件已添加", Toast.LENGTH_SHORT).show()
             }
             
             loadFiles()
         } catch (e: Exception) {
-            Toast.makeText(context, "添加失败: ${e.message}", Toast.LENGTH_SHORT).show()
+            Toast.makeText(context, "添加失败: ${e.message}", Toast.LENGTH_LONG).show()
             e.printStackTrace()
+        } finally {
+            inputStream?.close()
         }
     }
     

@@ -68,6 +68,7 @@ dependencies {
     implementation(libs.androidx.navigation.ui.ktx)
     implementation(libs.androidx.constraintlayout)
     implementation(libs.androidx.recyclerview)
+    implementation(libs.androidx.swiperefreshlayout)
     implementation(libs.androidx.core.backported.fixes)
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
