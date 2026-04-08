@@ -48,7 +48,11 @@ android {
 }
 
 dependencies {
-
+    testImplementation(libs.junit)
+    testImplementation(libs.poi.ooxml)
+    testImplementation(libs.mockito.core)
+    testImplementation(libs.mockito.kotlin)
+    androidTestImplementation(libs.androidx.junit)
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.appcompat)
     implementation(libs.androidx.lifecycle.runtime.ktx)
@@ -73,7 +77,7 @@ dependencies {
     debugImplementation(libs.androidx.ui.tooling)
     debugImplementation(libs.androidx.ui.test.manifest)
     // 本地 HTTP 服务器（NAS 核心）
-    implementation("org.nanohttpd:nanohttpd:2.3.1")
+    implementation(libs.nanohttpd)
 
     // 文件选择
     implementation("com.github.woxthebox:draglistview:1.5.4") {
@@ -86,6 +90,4 @@ dependencies {
     configurations.all {
         exclude(group = "com.android.support")
     }
-
-// ... existing code ...
 }

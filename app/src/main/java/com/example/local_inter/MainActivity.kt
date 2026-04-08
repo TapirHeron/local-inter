@@ -16,46 +16,46 @@ class MainActivity : AppCompatActivity() {
 
     lateinit var nasServer: NasServer
     private lateinit var p2pManager: P2pManager
+    internal lateinit var securityGuard: SecurityGuard
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        setContentView(R.layout.activity_main)
+
+        try {
+            // 初始化安全模块
+            securityGuard = SecurityGuard(this, NasServer(NAS_PORT))
+            
+            // 初始化服务（传入 securityGuard）
+            nasServer = NasServer(NAS_PORT, securityGuard)
+        } catch (e: Exception) {
+            e.printStackTrace()
+            android.util.Log.e("MainActivity", "NAS Server 初始化失败: ${e.message}")
+        }
         
         try {
-            setContentView(R.layout.activity_main)
-
-            // 初始化服务
-            nasServer = NasServer(NAS_PORT)
             p2pManager = P2pManager(this)
-            
-            try {
-                SecurityGuard(this, nasServer).startMonitor()
-            } catch (e: Exception) {
-                e.printStackTrace()
-            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+            android.util.Log.e("MainActivity", "P2P Manager 初始化失败: ${e.message}")
+        }
+        
+        try {
+            securityGuard.startMonitor()
+        } catch (e: Exception) {
+            e.printStackTrace()
+            android.util.Log.e("MainActivity", "SecurityGuard 初始化失败: ${e.message}")
+        }
 
-            // 底部导航
+        // 底部导航
+        try {
             val navView = findViewById<BottomNavigationView>(R.id.nav_view)
             val navController = findNavController(R.id.nav_host)
             navView.setupWithNavController(navController)
-
-            // 异步启动服务
-            startServices()
         } catch (e: Exception) {
             e.printStackTrace()
-            // 如果初始化失败，至少显示一个空白界面避免闪退
-            setContentView(R.layout.activity_main)
+            android.util.Log.e("MainActivity", "导航初始化失败: ${e.message}")
         }
-    }
-
-    private fun startServices() {
-        Thread {
-            try {
-                nasServer.startServer()
-                p2pManager.createGroup()
-            } catch (e: Exception) {
-                e.printStackTrace()
-            }
-        }.start()
     }
 
     override fun onDestroy() {
