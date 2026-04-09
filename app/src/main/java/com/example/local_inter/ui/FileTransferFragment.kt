@@ -242,22 +242,44 @@ class FileTransferFragment : Fragment() {
         activity.transferHistoryManager.addRecord(record)
         
         if (success) {
+            // 更新UI为成功状态
+            updateUIForSuccess(isSent)
+            
             AlertDialog.Builder(requireContext())
-                .setTitle("传输成功")
-                .setMessage("文件已成功${if (isSent) "发送" else "接收"}")
-                .setPositiveButton("确定") { _, _ ->
+                .setTitle("✅ 传输成功")
+                .setMessage("文件已成功${if (isSent) "发送到" else "接收自"} $deviceName\n\n文件名：${tvFileName.text}\n大小：${tvFileSize.text}")
+                .setPositiveButton("继续发送") { _, _ ->
                     resetUI()
+                }
+                .setNegativeButton("返回列表") { _, _ ->
+                    requireActivity().finish()
                 }
                 .show()
         } else {
             AlertDialog.Builder(requireContext())
-                .setTitle("传输失败")
+                .setTitle("❌ 传输失败")
                 .setMessage(errorMessage ?: "未知错误")
-                .setPositiveButton("确定") { _, _ ->
+                .setPositiveButton("重试") { _, _ ->
                     resetUI()
+                }
+                .setNegativeButton("取消") { _, _ ->
+                    requireActivity().finish()
                 }
                 .show()
         }
+    }
+    
+    /**
+     * 更新UI为成功状态
+     */
+    private fun updateUIForSuccess(isSent: Boolean) {
+        progressBar.progress = 100
+        tvProgress.text = "100%"
+        tvSpeed.text = "✅ 传输完成"
+        tvSpeed.setTextColor(0xFF00C853.toInt()) // 绿色
+        btnCancel.visibility = View.GONE
+        btnSelectFile.isEnabled = true
+        btnSelectFile.text = "继续发送"
     }
     
     /**
@@ -276,11 +298,13 @@ class FileTransferFragment : Fragment() {
      */
     private fun resetUI() {
         btnSelectFile.isEnabled = true
+        btnSelectFile.text = "选择文件"
         btnCancel.visibility = View.GONE
         tvFileName.text = "未选择文件"
         tvFileSize.text = ""
         tvProgress.text = ""
         tvSpeed.text = ""
+        tvSpeed.setTextColor(0xFF666666.toInt()) // 恢复默认颜色
         progressBar.progress = 0
         selectedFileUri = null
         selectedFilePath = null
