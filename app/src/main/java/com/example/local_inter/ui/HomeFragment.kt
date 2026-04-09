@@ -1,4 +1,4 @@
-package com.example.local_inter.ui
+/*package com.example.local_inter.ui
 
 import android.app.AlertDialog
 import android.content.ClipData
@@ -231,3 +231,5 @@ class HomeFragment : Fragment() {
             .show()
     }
 }
+
+ */

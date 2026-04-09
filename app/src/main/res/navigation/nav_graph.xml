@@ -2,21 +2,18 @@
 <navigation xmlns:android="http://schemas.android.com/apk/res/android"
             xmlns:app="http://schemas.android.com/apk/res-auto"
             android:id="@+id/nav_graph"
-            app:startDestination="@id/homeFragment">
+            app:startDestination="@id/homeUnstartedFragment"> <fragment
+        android:id="@+id/homeUnstartedFragment"
+        android:name="com.example.local_inter.ui.HomeUnstartedFragment"
+        android:label="Home">
+    <action
+            android:id="@+id/action_unstarted_to_active"
+            app:destination="@id/homeActiveFragment" />
+</fragment>
 
     <fragment
-            android:id="@+id/homeFragment"
-            android:name="com.example.local_inter.ui.HomeFragment"
-            android:label="HomeFragment"/>
-    
-    <fragment
-            android:id="@+id/devicesFragment"
-            android:name="com.example.local_inter.ui.DevicesFragment"
-            android:label="DevicesFragment"/>
-    
-    <fragment
-            android:id="@+id/filesFragment"
-            android:name="com.example.local_inter.ui.FilesFragment"
-            android:label="FilesFragment"/>
-            
+            android:id="@+id/homeActiveFragment"
+            android:name="com.example.local_inter.ui.HomeActiveFragment"
+            android:label="Active Panel" />
+
 </navigation>

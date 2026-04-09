@@ -1,0 +1,108 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.coordinatorlayout.widget.CoordinatorLayout
+        xmlns:android="http://schemas.android.com/apk/res/android"
+        xmlns:app="http://schemas.android.com/apk/res-auto"
+        android:id="@+id/root_container"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="#FFFFFF">
+
+    <androidx.constraintlayout.widget.ConstraintLayout
+            android:layout_width="match_parent"
+            android:layout_height="match_parent">
+
+        <TextView
+                android:id="@+id/tv_app_title"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="80dp"
+                android:text="随身NAS"
+                android:textColor="#000000"
+                android:textSize="80sp"
+                android:textStyle="bold"
+                app:layout_constraintBottom_toTopOf="@id/btn_toggle"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintStart_toStartOf="parent" />
+
+        <com.google.android.material.button.MaterialButton
+                android:id="@+id/btn_toggle"
+                android:layout_width="200dp"
+                android:layout_height="200dp"
+                android:text="启动\n服务"
+                android:textColor="#FFFFFF"
+                android:textSize="30sp"
+                android:backgroundTint="#4080FF"
+                app:cornerRadius="100dp"
+                android:insetTop="0dp"
+                android:insetBottom="0dp"
+                app:layout_constraintBottom_toBottomOf="parent"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toTopOf="parent" />
+
+        <com.google.android.material.button.MaterialButton
+                android:id="@+id/btn_open_settings"
+                android:layout_width="match_parent"
+                android:layout_height="60dp"
+                android:text="设置"
+                android:textColor="#FFFFFF"
+                android:backgroundTint="#4080FF"
+                android:textSize="18sp"
+                app:cornerRadius="0dp"
+                android:insetTop="0dp"
+                android:insetBottom="0dp"
+                app:layout_constraintBottom_toBottomOf="parent" />
+
+    </androidx.constraintlayout.widget.ConstraintLayout>
+
+    <LinearLayout
+            android:id="@+id/bottom_sheet_layout"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:background="#FFFFFF"
+            android:elevation="24dp"
+            app:layout_behavior="com.google.android.material.bottomsheet.BottomSheetBehavior"
+            app:behavior_peekHeight="0dp"
+            app:behavior_hideable="true">
+
+        <com.google.android.material.button.MaterialButton
+                android:id="@+id/bottom_sheet_header"
+                android:layout_width="match_parent"
+                android:layout_height="60dp"
+                android:text="收起"
+                android:textColor="#FFFFFF"
+                android:backgroundTint="#4080FF"
+                android:textSize="16sp"
+                android:textStyle="bold"
+                app:cornerRadius="0dp"
+                android:insetTop="0dp"
+                android:insetBottom="0dp" />
+
+        <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="20dp"
+                android:background="#F5F5F5">
+
+            <Switch
+                    android:id="@+id/switch_encryption"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="启用文件传输加密 (AES-256)"
+                    android:textSize="16sp"
+                    android:padding="10dp"/>
+
+            <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btn_key_manage"
+                    android:layout_width="match_parent"
+                    android:layout_height="50dp"
+                    android:text="管理加密密钥"
+                    android:backgroundTint="#4080FF"
+                    android:textSize="16sp"
+                    android:layout_marginTop="20dp"
+                    android:layout_marginBottom="30dp"/>
+        </LinearLayout>
+    </LinearLayout>
+</androidx.coordinatorlayout.widget.CoordinatorLayout>
