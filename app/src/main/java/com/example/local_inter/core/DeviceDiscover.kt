@@ -101,14 +101,19 @@ class DeviceDiscover(private val context: Context) {
         try {
             val ds = DatagramSocket()
             ds.broadcast = true
-            val msg = "LAN_DEVICE_${android.os.Build.MODEL}"
+            
+            // 获取用户设置的设备名称
+            val prefs = context.getSharedPreferences("app_settings", Context.MODE_PRIVATE)
+            val deviceName = prefs.getString("device_name", android.os.Build.MODEL) ?: android.os.Build.MODEL
+            
+            val msg = "LAN_DEVICE_$deviceName"
             val packet = DatagramPacket(
                 msg.toByteArray(), msg.length,
                 InetAddress.getByName("255.255.255.255"), port
             )
             ds.send(packet)
             ds.close()
-            Log.d(TAG, "已广播设备信息")
+            Log.d(TAG, "已广播设备信息: $msg")
         } catch (e: Exception) {
             Log.e(TAG, "广播失败: ${e.message}")
         }

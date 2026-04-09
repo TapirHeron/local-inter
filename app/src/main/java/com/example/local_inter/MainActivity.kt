@@ -14,6 +14,8 @@ import com.google.android.material.bottomnavigation.BottomNavigationView
 import com.example.local_inter.core.NasServer
 import com.example.local_inter.core.P2pManager
 import com.example.local_inter.core.SecurityGuard
+import com.example.local_inter.core.FileTransferManager
+import com.example.local_inter.core.TransferHistoryManager
 
 class MainActivity : AppCompatActivity() {
     companion object {
@@ -23,6 +25,8 @@ class MainActivity : AppCompatActivity() {
     lateinit var nasServer: NasServer
     private lateinit var p2pManager: P2pManager
     internal lateinit var securityGuard: SecurityGuard
+    internal lateinit var fileTransferManager: FileTransferManager
+    internal lateinit var transferHistoryManager: TransferHistoryManager
 
     private val permissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
@@ -70,6 +74,33 @@ class MainActivity : AppCompatActivity() {
         } catch (e: Exception) {
             e.printStackTrace()
             android.util.Log.e("MainActivity", "SecurityGuard 初始化失败: ${e.message}")
+        }
+        
+        // 初始化文件传输管理器
+        try {
+            fileTransferManager = FileTransferManager()
+            
+            // 设置文件接收请求回调
+            fileTransferManager.onFileReceiveRequest = { fileName, fileSize, senderIp ->
+                runOnUiThread {
+                    android.util.Log.d("MainActivity", "收到文件请求: $fileName from $senderIp")
+                    showFileReceiveDialog(fileName, fileSize, senderIp)
+                }
+            }
+            
+            fileTransferManager.startReceiveService()
+            android.util.Log.d("MainActivity", "文件传输服务已启动")
+        } catch (e: Exception) {
+            e.printStackTrace()
+            android.util.Log.e("MainActivity", "文件传输服务初始化失败: ${e.message}")
+        }
+        
+        // 初始化历史记录管理器
+        try {
+            transferHistoryManager = TransferHistoryManager(this)
+        } catch (e: Exception) {
+            e.printStackTrace()
+            android.util.Log.e("MainActivity", "历史记录管理器初始化失败: ${e.message}")
         }
     }
     
@@ -142,5 +173,88 @@ class MainActivity : AppCompatActivity() {
         nasServer.stopServer()
         p2pManager.unregisterBroadcastReceivers()
         p2pManager.removeGroup()
+        fileTransferManager.stopReceiveService()
+    }
+    
+    /**
+     * 显示文件接收确认对话框
+     */
+    private fun showFileReceiveDialog(fileName: String, fileSize: Long, senderIp: String) {
+        // 验证文件名
+        if (fileName.isEmpty()) {
+            android.widget.Toast.makeText(this, "错误：文件名为空", android.widget.Toast.LENGTH_SHORT).show()
+            fileTransferManager.rejectFile()
+            return
+        }
+        
+        val fileSizeStr = formatFileSize(fileSize)
+        
+        android.app.AlertDialog.Builder(this)
+            .setTitle("接收文件")
+            .setMessage("收到来自 $senderIp 的文件：\n\n文件名：$fileName\n大小：$fileSizeStr\n\n是否接收？")
+            .setPositiveButton("接收") { _, _ ->
+                // 获取保存路径 - 使用应用专属目录避免权限问题
+                val saveDir = getExternalFilesDir(null)
+                val lanShareDir = java.io.File(saveDir, "LanShare")
+                if (!lanShareDir.exists()) {
+                    lanShareDir.mkdirs()
+                }
+                
+                val saveFile = java.io.File(lanShareDir, fileName)
+                
+                // 设置接收回调
+                fileTransferManager.onReceiveProgress = { progress ->
+                    runOnUiThread {
+                        // 可以显示进度通知
+                    }
+                }
+                
+                fileTransferManager.onReceiveComplete = { success, filePath ->
+                    runOnUiThread {
+                        // 添加历史记录
+                        val record = com.example.local_inter.core.TransferRecord(
+                            fileName = fileName,
+                            fileSize = fileSize,
+                            deviceName = senderIp,
+                            deviceIp = senderIp,
+                            isSuccess = success,
+                            isSent = false,
+                            filePath = filePath,
+                            errorMessage = if (success) null else "接收失败"
+                        )
+                        transferHistoryManager.addRecord(record)
+                        
+                        if (success) {
+                            android.app.AlertDialog.Builder(this)
+                                .setTitle("接收成功")
+                                .setMessage("文件已保存到：\n$filePath")
+                                .setPositiveButton("确定", null)
+                                .show()
+                        } else {
+                            android.widget.Toast.makeText(this, "文件接收失败", android.widget.Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                }
+                
+                // 开始接收
+                fileTransferManager.acceptAndReceiveFile(saveFile.absolutePath)
+            }
+            .setNegativeButton("拒绝") { _, _ ->
+                fileTransferManager.rejectFile()
+            }
+            .setCancelable(false)
+            .show()
+    }
+    
+    /**
+     * 格式化文件大小
+     */
+    private fun formatFileSize(size: Long): String {
+        return when {
+            size < 1024 -> "$size B"
+            size < 1024 * 1024 -> "${String.format("%.2f", size / 1024.0)} KB"
+            size < 1024 * 1024 * 1024 -> "${String.format("%.2f", size / (1024.0 * 1024.0))} MB"
+            else -> "${String.format("%.2f", size / (1024.0 * 1024.0 * 1024.0))} GB"
+        }
     }
 }

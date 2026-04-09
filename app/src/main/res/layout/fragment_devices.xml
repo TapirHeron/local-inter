@@ -33,6 +33,17 @@
                     android:contentDescription="刷新"/>
         </LinearLayout>
 
+        <!-- 本机信息显示 -->
+        <TextView
+                android:id="@+id/tv_local_info"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="加载中..."
+                android:textSize="14sp"
+                android:textColor="#666"
+                android:paddingTop="8dp"
+                android:paddingBottom="8dp"/>
+
         <androidx.swiperefreshlayout.widget.SwipeRefreshLayout
                 android:id="@+id/swipe_refresh"
                 android:layout_width="match_parent"

@@ -250,34 +250,40 @@ class FilesFragment : Fragment() {
     
     private fun openFile(file: File) {
         try {
+            if (!file.exists()) {
+                Toast.makeText(context, "文件不存在", Toast.LENGTH_SHORT).show()
+                return
+            }
+            
             val activity = requireActivity() as? MainActivity
             val securityGuard = activity?.securityGuard
             
-            // 检查是否是加密文件
-            if (FileEncryptor.isEncrypted(file) && securityGuard != null) {
-                // 解密后打开
+            // 如果是加密文件，先解密
+            val fileToOpen = if (file.name.endsWith(".enc") && securityGuard != null) {
                 val decryptedFile = File(requireContext().cacheDir, "dec_${file.nameWithoutExtension}")
                 val key = securityGuard.getOrCreateEncryptionKey()
-                
                 FileEncryptor.decryptFile(file, decryptedFile, key)
-                
-                val uri = Uri.fromFile(decryptedFile)
-                val intent = Intent(Intent.ACTION_VIEW)
-                val mimeType = getMimeType(decryptedFile)
-                intent.setDataAndType(uri, mimeType)
-                intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                startActivity(intent)
-                
-                // 注意：解密文件会在缓存中，应用关闭后会自动清理
+                decryptedFile
             } else {
-                // 普通文件直接打开
-                val uri = Uri.fromFile(file)
-                val intent = Intent(Intent.ACTION_VIEW)
-                val mimeType = getMimeType(file)
-                intent.setDataAndType(uri, mimeType)
-                intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                startActivity(intent)
+                file
             }
+            
+            val uri = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.N) {
+                // Android 7.0+ 使用 FileProvider
+                androidx.core.content.FileProvider.getUriForFile(
+                    requireContext(),
+                    "${requireContext().packageName}.fileprovider",
+                    fileToOpen
+                )
+            } else {
+                Uri.fromFile(fileToOpen)
+            }
+            
+            val intent = Intent(Intent.ACTION_VIEW)
+            val mimeType = getMimeType(fileToOpen)
+            intent.setDataAndType(uri, mimeType)
+            intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            startActivity(intent)
         } catch (e: Exception) {
             Toast.makeText(context, "无法打开此文件: ${e.message}", Toast.LENGTH_SHORT).show()
             e.printStackTrace()
@@ -300,32 +306,39 @@ class FilesFragment : Fragment() {
     
     private fun shareFile(file: File) {
         try {
+            if (!file.exists()) {
+                Toast.makeText(context, "文件不存在", Toast.LENGTH_SHORT).show()
+                return
+            }
+            
             val activity = requireActivity() as? MainActivity
             val securityGuard = activity?.securityGuard
             
-            // 检查是否是加密文件
-            if (FileEncryptor.isEncrypted(file) && securityGuard != null) {
-                // 解密后分享
+            // 如果是加密文件，先解密
+            val fileToShare = if (file.name.endsWith(".enc") && securityGuard != null) {
                 val decryptedFile = File(requireContext().cacheDir, "dec_${file.nameWithoutExtension}")
                 val key = securityGuard.getOrCreateEncryptionKey()
-                
                 FileEncryptor.decryptFile(file, decryptedFile, key)
-                
-                val uri = Uri.fromFile(decryptedFile)
-                val intent = Intent(Intent.ACTION_SEND)
-                intent.type = getMimeType(decryptedFile)
-                intent.putExtra(Intent.EXTRA_STREAM, uri)
-                intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                startActivity(Intent.createChooser(intent, "分享文件"))
+                decryptedFile
             } else {
-                // 普通文件直接分享
-                val uri = Uri.fromFile(file)
-                val intent = Intent(Intent.ACTION_SEND)
-                intent.type = getMimeType(file)
-                intent.putExtra(Intent.EXTRA_STREAM, uri)
-                intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                startActivity(Intent.createChooser(intent, "分享文件"))
+                file
             }
+            
+            val uri = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.N) {
+                androidx.core.content.FileProvider.getUriForFile(
+                    requireContext(),
+                    "${requireContext().packageName}.fileprovider",
+                    fileToShare
+                )
+            } else {
+                Uri.fromFile(fileToShare)
+            }
+            
+            val intent = Intent(Intent.ACTION_SEND)
+            intent.type = getMimeType(fileToShare)
+            intent.putExtra(Intent.EXTRA_STREAM, uri)
+            intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            startActivity(Intent.createChooser(intent, "分享文件"))
         } catch (e: Exception) {
             Toast.makeText(context, "分享失败: ${e.message}", Toast.LENGTH_SHORT).show()
             e.printStackTrace()

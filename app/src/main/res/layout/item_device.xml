@@ -33,6 +33,15 @@
                 android:text="IP 地址"
                 android:textSize="14sp"
                 android:textColor="#888"/>
+        
+        <TextView
+                android:id="@+id/tv_status"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="● 在线"
+                android:textSize="12sp"
+                android:textColor="#00C853"
+                android:layout_marginTop="2dp"/>
     </LinearLayout>
 
     <Button

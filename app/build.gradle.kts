@@ -86,6 +86,12 @@ dependencies {
         exclude(group = "com.android.support", module = "support-core-utils")
         exclude(group = "com.android.support", module = "support-core-ui")
     }
+    
+    // Gson for JSON serialization
+    implementation("com.google.code.gson:gson:2.10.1")
+    
+    // CardView
+    implementation("androidx.cardview:cardview:1.0.0")
 
     // 强制使用 AndroidX，排除所有 Support Library
     configurations.all {
