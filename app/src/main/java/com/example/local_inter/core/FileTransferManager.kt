@@ -26,6 +26,8 @@ class FileTransferManager {
     private var pendingFileName: String = ""
     private var pendingFileSize: Long = 0
     private var pendingSenderIp: String = ""
+    private val pendingLock = Any()  // 同步锁
+    private var isPendingReady = false  // 标记是否准备好
     
     /**
      * 接收文件回调
@@ -56,11 +58,12 @@ class FileTransferManager {
                     reuseAddress = true
                 }
                 isReceiving = true
-                Log.d(TAG, "文件接收服务已启动，端口: $FILE_RECEIVE_PORT")
+                Log.d(TAG, "✅ 文件接收服务已启动，端口: $FILE_RECEIVE_PORT, 监听地址: ${serverSocket?.inetAddress}:${serverSocket?.localPort}")
                 
                 while (isReceiving) {
                     try {
                         val clientSocket = serverSocket?.accept() ?: break
+                        Log.d(TAG, "🔔 收到新连接请求 from: ${clientSocket.inetAddress.hostAddress}:${clientSocket.port}")
                         handleIncomingFile(clientSocket)
                     } catch (e: IOException) {
                         if (isReceiving) {
@@ -101,18 +104,43 @@ class FileTransferManager {
                 Log.d(TAG, "新连接来自: ${clientSocket.inetAddress.hostAddress}")
                 inputStream = clientSocket.getInputStream()
                 
-                // 读取文件信息
-                val fileName = readString(inputStream)
+                // 读取文件名长度
+                val fileNameLength = readLong(inputStream)
+                Log.d(TAG, "文件名长度: $fileNameLength")
+                
+                if (fileNameLength <= 0 || fileNameLength > 1000) {
+                    throw Exception("无效的文件名长度: $fileNameLength")
+                }
+                
+                // 读取文件名
+                val fileNameBytes = ByteArray(fileNameLength.toInt())
+                var offset = 0
+                while (offset < fileNameLength) {
+                    val bytesRead = inputStream.read(fileNameBytes, offset, fileNameLength.toInt() - offset)
+                    if (bytesRead == -1) throw EOFException("读取文件名失败")
+                    offset += bytesRead
+                }
+                val fileName = String(fileNameBytes, Charsets.UTF_8)
+                Log.d(TAG, "文件名: '$fileName'")
+                
+                // 读取文件大小
                 val fileSize = readLong(inputStream)
+                Log.d(TAG, "文件大小: $fileSize")
+                
                 val senderIp = clientSocket.inetAddress.hostAddress ?: "unknown"
                 
                 Log.d(TAG, "收到文件请求: $fileName, 大小: $fileSize, 来自: $senderIp")
                 
                 // 保存socket和文件信息，等待用户确认
-                pendingReceiveSocket = clientSocket
-                pendingFileName = fileName
-                pendingFileSize = fileSize
-                pendingSenderIp = senderIp
+                synchronized(pendingLock) {
+                    pendingReceiveSocket = clientSocket
+                    pendingFileName = fileName
+                    pendingFileSize = fileSize
+                    pendingSenderIp = senderIp
+                    isPendingReady = true
+                    Log.d(TAG, "✅ Pending信息已设置: fileName=$fileName, fileSize=$fileSize")
+                    (pendingLock as Object).notifyAll()  // 通知等待的线程
+                }
                 
                 // 通过回调通知UI
                 onFileReceiveRequest?.invoke(fileName, fileSize, senderIp)
@@ -120,9 +148,7 @@ class FileTransferManager {
             } catch (e: Exception) {
                 Log.e(TAG, "处理文件请求失败: ${e.message}", e)
                 e.printStackTrace()
-                try {
-                    clientSocket.close()
-                } catch (ex: Exception) {}
+                // 不要在这里关闭socket，让调用方处理
                 onReceiveComplete?.invoke(false, e.message)
             }
         }
@@ -132,19 +158,39 @@ class FileTransferManager {
      * 接收文件（用户确认后调用）
      */
     fun acceptAndReceiveFile(savePath: String) {
+        // 等待pending信息准备好
+        synchronized(pendingLock) {
+            while (!isPendingReady) {
+                Log.d(TAG, "等待文件头信息...")
+                (pendingLock as Object).wait(5000)  // 最多等5秒
+                if (!isPendingReady) {
+                    Log.e(TAG, "等待文件头信息超时")
+                    onReceiveComplete?.invoke(false, "等待文件信息超时")
+                    return
+                }
+            }
+        }
+        
         val socket = pendingReceiveSocket
+        val fileName = pendingFileName
+        val fileSize = pendingFileSize
+        Log.d(TAG, "📥 准备接收文件, socket状态: ${if (socket == null) "null" else if (socket.isClosed) "已关闭" else "正常"}")
+        Log.d(TAG, "📥 文件名: $fileName, 大小: $fileSize")
         if (socket == null || socket.isClosed) {
             onReceiveComplete?.invoke(false, "连接已关闭")
             return
         }
         
-        receiveFileInternal(socket, savePath)
+        receiveFileInternal(socket, savePath, fileName, fileSize)
         
         // 清空pending
-        pendingReceiveSocket = null
-        pendingFileName = ""
-        pendingFileSize = 0
-        pendingSenderIp = ""
+        synchronized(pendingLock) {
+            pendingReceiveSocket = null
+            pendingFileName = ""
+            pendingFileSize = 0
+            pendingSenderIp = ""
+            isPendingReady = false
+        }
     }
     
     /**
@@ -176,18 +222,23 @@ class FileTransferManager {
     /**
      * 内部接收文件方法
      */
-    private fun receiveFileInternal(clientSocket: Socket, savePath: String) {
+    private fun receiveFileInternal(clientSocket: Socket, savePath: String, fileName: String, fileSize: Long) {
         thread(name = "FileReceiver") {
+            val localFileName = fileName
+            val localFileSize = fileSize
+            
             var inputStream: InputStream? = null
             var outputStream: FileOutputStream? = null
             
             try {
+                // 发送确认信号给发送端
+                clientSocket.getOutputStream().write(1)
+                clientSocket.getOutputStream().flush()
+                Log.d(TAG, "✅ 已发送确认信号")
+                
                 inputStream = clientSocket.getInputStream()
                 
-                // 注意：文件信息（fileName, fileSize）已在 handleIncomingFile 中读取
-                // 这里直接开始接收文件数据
-                
-                Log.d(TAG, "开始接收文件: $pendingFileName, 大小: $pendingFileSize")
+                Log.d(TAG, "开始接收文件: $localFileName, 大小: $localFileSize")
                 
                 // 创建保存目录
                 val saveFile = File(savePath)
@@ -209,11 +260,11 @@ class FileTransferManager {
                     TransferProgress(
                         status = TransferStatus.TRANSFERRING,
                         transferredBytes = 0,
-                        totalBytes = pendingFileSize
+                        totalBytes = localFileSize
                     )
                 )
                 
-                while (totalReceived < pendingFileSize) {
+                while (totalReceived < localFileSize) {
                     bytesRead = inputStream.read(buffer)
                     if (bytesRead == -1) break
                     
@@ -228,7 +279,7 @@ class FileTransferManager {
                         TransferProgress(
                             status = TransferStatus.TRANSFERRING,
                             transferredBytes = totalReceived,
-                            totalBytes = pendingFileSize,
+                            totalBytes = localFileSize,
                             speed = speed
                         )
                     )
@@ -237,11 +288,16 @@ class FileTransferManager {
                 outputStream.flush()
                 Log.d(TAG, "文件接收完成: $savePath")
                 
+                // 发送完成信号给发送端
+                clientSocket.getOutputStream().write(2)
+                clientSocket.getOutputStream().flush()
+                Log.d(TAG, "✅ 已发送完成信号")
+                
                 onReceiveProgress?.invoke(
                     TransferProgress(
                         status = TransferStatus.COMPLETED,
                         transferredBytes = totalReceived,
-                        totalBytes = pendingFileSize
+                        totalBytes = localFileSize
                     )
                 )
                 
@@ -288,10 +344,10 @@ class FileTransferManager {
                 
                 // 建立连接
                 socket = Socket()
-                socket.soTimeout = 30000 // 30秒超时
                 socket.reuseAddress = true
+                Log.d(TAG, "📡 尝试连接到: $remoteIp:$remotePort")
                 socket.connect(InetSocketAddress(remoteIp, remotePort), 10000)
-                Log.d(TAG, "已连接到: $remoteIp:$remotePort")
+                Log.d(TAG, "✅ 已连接到: $remoteIp:$remotePort, 本地端口: ${socket.localPort}")
                 
                 outputStream = socket.getOutputStream()
                 
@@ -304,10 +360,20 @@ class FileTransferManager {
                     throw Exception("文件名为空")
                 }
                 
+                Log.d(TAG, "写入文件名长度: ${fileName.length}")
                 writeString(outputStream, fileName)
+                Log.d(TAG, "写入文件大小: $fileSize")
                 writeLong(outputStream, fileSize)
                 Log.d(TAG, "已发送文件头信息")
                 outputStream.flush()
+                
+                // 等待接收端确认
+                Log.d(TAG, "等待接收端确认...")
+                val confirmByte = socket.getInputStream().read()
+                if (confirmByte != 1) {
+                    throw Exception("接收端拒绝接收或连接异常")
+                }
+                Log.d(TAG, "✅ 接收端已确认，开始发送数据")
                 
                 // 发送文件数据
                 inputStream = FileInputStream(file)
@@ -325,7 +391,7 @@ class FileTransferManager {
                 )
                 
                 while (inputStream.read(buffer).also { bytesRead = it } != -1) {
-                    outputStream.write(buffer, 0, bytesRead)
+                    outputStream?.write(buffer, 0, bytesRead)
                     totalSent += bytesRead
                     
                     // 每发送1MB输出一次日志
@@ -349,6 +415,15 @@ class FileTransferManager {
                 
                 outputStream.flush()
                 Log.d(TAG, "文件发送完成: ${file.name}, 共发送: ${totalSent}字节")
+                
+                // 等待接收端完成信号
+                Log.d(TAG, "等待接收端完成确认...")
+                val doneByte = socket.getInputStream().read()
+                if (doneByte != 2) {
+                    Log.w(TAG, "接收端完成信号异常: $doneByte")
+                } else {
+                    Log.d(TAG, "✅ 接收端已完成")
+                }
                 
                 onSendProgress?.invoke(
                     TransferProgress(
@@ -408,18 +483,18 @@ class FileTransferManager {
     }
     
     /**
-     * 写入长整型
+     * 写入长整型（大端序）
      */
     private fun writeLong(outputStream: OutputStream, value: Long) {
         val buffer = ByteArray(8)
-        for (i in 7 downTo 0) {
-            buffer[i] = (value and (0xFFL shl (i * 8))).toByte()
+        for (i in 0 until 8) {
+            buffer[i] = ((value shr ((7 - i) * 8)) and 0xFF).toByte()
         }
         outputStream.write(buffer)
     }
     
     /**
-     * 读取长整型
+     * 读取长整型（大端序）
      */
     private fun readLong(inputStream: InputStream): Long {
         val bytes = ByteArray(8)
@@ -431,7 +506,7 @@ class FileTransferManager {
         }
         var value = 0L
         for (i in 0 until 8) {
-            value = value or ((bytes[i].toLong() and 0xFF) shl ((7 - i) * 8))
+            value = (value shl 8) or (bytes[i].toLong() and 0xFF)
         }
         return value
     }
