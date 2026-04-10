@@ -5,6 +5,7 @@ import android.util.Log
 import java.net.DatagramPacket
 import java.net.DatagramSocket
 import java.net.InetAddress
+import java.net.NetworkInterface
 import java.util.concurrent.atomic.AtomicBoolean
 
 class DeviceDiscover(private val context: Context) {
@@ -23,6 +24,31 @@ class DeviceDiscover(private val context: Context) {
     private var receiveThread: Thread? = null
     
     private val discoveredDevices = mutableMapOf<String, Pair<String, Long>>()
+    
+    /**
+     * 获取本机IP地址列表
+     */
+    private fun getLocalIpAddresses(): Set<String> {
+        val ipSet = mutableSetOf<String>()
+        try {
+            val interfaces = NetworkInterface.getNetworkInterfaces()
+            while (interfaces.hasMoreElements()) {
+                val intf = interfaces.nextElement()
+                val addrs = intf.inetAddresses
+                while (addrs.hasMoreElements()) {
+                    val addr = addrs.nextElement()
+                    if (!addr.isLoopbackAddress && addr.hostAddress?.contains(".") == true) {
+                        ipSet.add(addr.hostAddress)
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "获取本机IP失败: ${e.message}")
+        }
+        // 添加常见的本地回环地址
+        ipSet.add("127.0.0.1")
+        return ipSet
+    }
 
     fun start() {
         if (isRunning.get()) {
@@ -55,6 +81,13 @@ class DeviceDiscover(private val context: Context) {
                         val currentTime = System.currentTimeMillis()
                         
                         if (msg.startsWith("LAN_DEVICE")) {
+                            // 过滤掉自己的IP地址
+                            val localIps = getLocalIpAddresses()
+                            if (localIps.contains(ip)) {
+                                Log.d(TAG, "忽略本机设备: $ip")
+                                continue
+                            }
+                            
                             val lastSeen = discoveredDevices[ip]?.second ?: 0
                             if (currentTime - lastSeen > 3000) {
                                 discoveredDevices[ip] = Pair(msg, currentTime)

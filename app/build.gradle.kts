@@ -8,6 +8,16 @@ android {
     namespace = "com.example.local_inter"
     compileSdk = 35
 
+    signingConfigs {
+        create("release") {
+            storeFile = file("../my-release-key.jks")
+            keyAlias = "my-alias"
+            storePassword = System.getenv("KEYSTORE_PASSWORD") ?: ""
+            keyPassword = System.getenv("KEY_PASSWORD") ?: ""
+
+        }
+    }
+
     defaultConfig {
         applicationId = "com.example.local_inter"
         minSdk = 24
@@ -23,6 +33,7 @@ android {
 
     buildTypes {
         release {
+            signingConfig = signingConfigs.getByName("release")
             isMinifyEnabled = false
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
         }

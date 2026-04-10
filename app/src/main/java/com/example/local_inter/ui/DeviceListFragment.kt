@@ -111,12 +111,7 @@ class DevicesFragment : Fragment() {
     }
 
     private fun addDevice(ip: String, msg: String) {
-        // 获取本机IP，过滤掉自己
-        val localIp = getLocalIpAddress()
-        if (ip == localIp) {
-            return
-        }
-        
+        // DeviceDiscover 已经在底层过滤了本机IP，这里直接添加即可
         // 检查是否已存在
         val existingIndex = deviceList.indexOfFirst { it.ipAddress == ip }
         if (existingIndex >= 0) {
